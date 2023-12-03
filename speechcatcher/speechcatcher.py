@@ -282,7 +282,8 @@ def recognize(speech2text, raw_speech_data, rate, chunk_length=8192, num_process
             # might be in the middle of a sentence - append to the last (open) paragraph
             merged_paragraphs[-1] += ' ' + paragraph
     complete_text = '\n\n'.join(merged_paragraphs)
-    print('\n')
+    if progress or quiet:
+        print('\n')
     return complete_text, paragraphs, paragraphs_tokens, paragraph_hyps, segments_in_seconds_start_end
 
 
