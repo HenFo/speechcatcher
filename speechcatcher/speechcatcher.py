@@ -140,7 +140,7 @@ def is_completed(utterance):
 # Using the model in 'speech2text', transcribe the path in 'media_path'
 # quiet mode: don't output partial transcriptions
 # progress mode: output transcription progress
-def recognize_file(speech2text, media_path, output_file='', quiet=True, progress=True, num_processes=4):
+def recognize_file(speech2text, media_path, output_file='', quiet=True, progress=True, num_processes=4, num_threads=1):
     ensure_dir('.tmp/')
     wavfile_path = '.tmp/' + hashlib.sha1(media_path.encode("utf-8")).hexdigest() + '.wav'
     convert_inputfile(media_path, wavfile_path)
@@ -154,7 +154,7 @@ def recognize_file(speech2text, media_path, output_file='', quiet=True, progress
         raw_speech_data = np.frombuffer(buf, dtype='int16')
 
     chunk_length = 8192
-    complete_text, paragraphs, paragraphs_tokens, paragraph_hyps, segments_start_end_in_seconds = recognize(speech2text, raw_speech_data, rate, chunk_length, num_processes, progress, quiet)
+    complete_text, paragraphs, paragraphs_tokens, paragraph_hyps, segments_start_end_in_seconds = recognize(speech2text, raw_speech_data, rate, chunk_length, num_processes, num_threads, progress, quiet)
 
     # Automatically generate output .txt name from media_path if it isnt set
     # media_path can also be an URL, in that case it needs special handling
@@ -185,7 +185,9 @@ def recognize_file(speech2text, media_path, output_file='', quiet=True, progress
 # Recgonize the speech in 'raw_speech_data' with sampling rate 'rate' using the model in 'speech2text'.
 # The rawspeech data should be a numpy array of dtype='int16'
 
-def recognize(speech2text, raw_speech_data, rate, chunk_length=8192, num_processes=1, progress=True, quiet=False):
+def recognize(speech2text, raw_speech_data, rate, chunk_length=8192, num_processes=1, num_threads=1, progress=True, quiet=False):
+    if num_threads != -1:
+        torch.set_num_threads(num_threads)
     # 32767 is the upper limit of 16-bit binary numbers and is used for the normalization of int to float.
     speech = raw_speech_data.astype(np.float16) / 32767.0
 
@@ -492,11 +494,7 @@ def main():
 
     args = parser.parse_args()
 
-    if args.num_threads != -1:
-        torch.set_num_threads(args.num_threads)
-
     num_processes = multiprocessing.cpu_count()
-
     # use n/2 as default for multi core machines with cores > 2 
     num_processes = num_processes // 2 if num_processes > 2 else num_processes
 
@@ -525,7 +523,7 @@ def main():
                              save_debug_wav=args.save_debug_wav,
                              exception_on_pyaudio_overflow=not args.no_exception_on_overflow)
     elif args.inputfile != '':
-        recognize_file(speech2text, args.inputfile, quiet=quiet, progress=progress, num_processes=num_processes)
+        recognize_file(speech2text, args.inputfile, quiet=quiet, progress=progress, num_processes=num_processes, num_threads=args.num_threads)
     else:
         parser.print_help()
 
